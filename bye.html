@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DegenLens — Sorry to see you go</title><style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #0a0b0e; color: #f8f4eb; font-family: 'Syne', -apple-system, sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  body::before { content: ''; position: fixed; top: -180px; left: 50%; transform: translateX(-50%); width: 900px; height: 480px;
+    background: radial-gradient(ellipse, rgba(201,150,12,.12), transparent 65%); pointer-events: none; }
+  .bar { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #e8b020 30%, #ffd060 50%, #e8b020 70%, transparent); }
+  .wrap { position: relative; max-width: 520px; margin: 0 auto; padding: 72px 20px 48px; text-align: center; }
+  h1 { font-size: 30px; font-weight: 800; line-height: 1.2; }
+  h1 .g { background: linear-gradient(135deg, #ffd060, #c9960c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  p.sub { margin-top: 12px; font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(248,244,235,.62); line-height: 1.6; }
+  .opts { margin-top: 30px; display: flex; flex-direction: column; gap: 10px; }
+  .opt { padding: 15px 16px; border-radius: 10px; border: 1px solid rgba(201,150,12,.25); background: #14151a; color: #f8f4eb;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; cursor: pointer; text-align: left; transition: border-color .15s; }
+  .opt:hover, .opt.on { border-color: #ffd060; }
+  .opt small { display: block; margin-top: 3px; font-family: 'DM Mono', monospace; font-weight: 400; font-size: 11.5px; color: rgba(248,244,235,.45); }
+  textarea { width: 100%; margin-top: 12px; min-height: 84px; padding: 11px 12px; border-radius: 10px; border: 1px solid rgba(201,150,12,.25);
+    background: #0f1014; color: #f8f4eb; font-family: 'DM Mono', monospace; font-size: 12.5px; resize: vertical; outline: none; }
+  textarea:focus { border-color: #c9960c; }
+  .send { margin-top: 12px; width: 100%; padding: 14px; border-radius: 10px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #ffd060, #c9960c); color: #0a0b0e; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+  .send:disabled { opacity: .4; cursor: default; }
+  .done { display: none; margin-top: 30px; padding: 18px; border-radius: 10px; background: rgba(13,204,106,.1); border: 1px solid rgba(13,204,106,.35); color: #0dcc6a; font-family: 'DM Mono', monospace; font-size: 13px; line-height: 1.6; }
+  .foot { margin-top: 36px; font-family: 'DM Mono', monospace; font-size: 10.5px; color: rgba(248,244,235,.32); line-height: 1.6; }
+  .foot a { color: #e8b020; text-decoration: none; }
+</style></head>
+<body><div class="bar"></div><div class="wrap">
+  <h1 data-t="h">Sorry to see you go.<br><span class="g">One click, why?</span></h1>
+  <p class="sub" data-t="sub">DegenLens is removed. Your answer goes straight to the developer and decides what gets fixed next.</p>
+  <div class="opts" id="opts">
+    <button class="opt" data-r="broken"><span data-t="r1">It didn't work / panel never showed up</span><small data-t="r1s">nothing appeared on the token page</small></button>
+    <button class="opt" data-r="confusing"><span data-t="r2">Too confusing</span><small data-t="r2s">didn't get what the score means</small></button>
+    <button class="opt" data-r="wrong"><span data-t="r3">Scores looked wrong</span><small data-t="r3s">a coin I know was rated badly</small></button>
+    <button class="opt" data-r="notneeded"><span data-t="r4">Don't need it</span><small data-t="r4s">just trying it out / use another tool</small></button>
+  </div>
+  <textarea id="txt" maxlength="500" data-ph="ph" placeholder="Anything else? (optional)"></textarea>
+  <button class="send" id="send" disabled data-t="send">Send</button>
+  <div class="done" id="done" data-t="done">Thanks — that really helps.</div>
+  <p class="foot"><span data-t="foot">Sent anonymously: your answer + extension version, nothing else.</span><br>
+    <a href="https://chromewebstore.google.com/detail/degenlens-%E2%80%93-memecoin-rug/mdmmddoajikdakiadcmocolniofceplk" data-t="back">Changed your mind? Reinstall DegenLens →</a></p>
+</div>
+<script>
+const TOPIC = 'degenlens-fb-c20ac59e86';
+const q = new URLSearchParams(location.search);
+const de = (q.get('l') || navigator.language || 'en').toLowerCase().startsWith('de');
+function apply(T) {
+  document.documentElement.lang = de ? 'de' : 'en';
+  for (const el of document.querySelectorAll('[data-t]')) { const v = T[el.dataset.t]; if (v) el.innerHTML = v[de ? 1 : 0]; }
+  for (const el of document.querySelectorAll('[data-ph]')) { const v = T[el.dataset.ph]; if (v) el.placeholder = v[de ? 1 : 0]; }
+}
+// Sends only the chosen answer, the optional text and the extension version.
+// No IDs, no cookies, no tracking. Delivered as a push message to the developer (ntfy.sh).
+async function send(title, lines) {
+  try {
+    await fetch('https://ntfy.sh/' + TOPIC, { method: 'POST', body: lines.filter(Boolean).join('\n'), headers: { Title: title, Tags: 'mag' } });
+    return true;
+  } catch (_) { return false; }
+}
+
+apply({
+  h: ['Sorry to see you go.<br><span class="g">One click, why?</span>', 'Schade, dass du gehst.<br><span class="g">Ein Klick: warum?</span>'],
+  sub: ['DegenLens is removed. Your answer goes straight to the developer and decides what gets fixed next.', 'DegenLens ist entfernt. Deine Antwort geht direkt an den Entwickler und entscheidet, was als Nächstes verbessert wird.'],
+  r1: ['It didn\'t work / panel never showed up', 'Hat nicht funktioniert / Panel kam nie'], r1s: ['nothing appeared on the token page', 'auf der Token-Seite erschien nichts'],
+  r2: ['Too confusing', 'Zu kompliziert'], r2s: ['didn\'t get what the score means', 'nicht verstanden, was der Score bedeutet'],
+  r3: ['Scores looked wrong', 'Scores wirkten falsch'], r3s: ['a coin I know was rated badly', 'ein Coin, den ich kenne, wurde falsch bewertet'],
+  r4: ['Don\'t need it', 'Brauche ich nicht'], r4s: ['just trying it out / use another tool', 'nur ausprobiert / nutze ein anderes Tool'],
+  ph: ['Anything else? (optional)', 'Sonst noch was? (optional)'], send: ['Send', 'Senden'],
+  done: ['Thanks — that really helps.', 'Danke, das hilft wirklich.'],
+  foot: ['Sent anonymously: your answer + extension version, nothing else.', 'Anonym gesendet: deine Antwort + Extension-Version, sonst nichts.'],
+  back: ['Changed your mind? Reinstall DegenLens →', 'Doch nicht? DegenLens neu installieren →'],
+});
+let reason = null;
+document.getElementById('opts').addEventListener('click', (e) => {
+  const b = e.target.closest('.opt'); if (!b) return;
+  reason = b.dataset.r;
+  document.querySelectorAll('.opt').forEach(o => o.classList.toggle('on', o === b));
+  document.getElementById('send').disabled = false;
+});
+document.getElementById('send').addEventListener('click', async () => {
+  const btn = document.getElementById('send'); btn.disabled = true;
+  await send('DegenLens uninstall: ' + reason, ['reason: ' + reason, 'v' + (q.get('v') || '?') + ' · ' + (de ? 'de' : 'en'), document.getElementById('txt').value.trim().slice(0, 500)]);
+  document.getElementById('done').style.display = 'block';
+  btn.style.display = 'none';
+});
+</script></body></html>

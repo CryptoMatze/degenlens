@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DegenLens — Score feedback</title><style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #0a0b0e; color: #f8f4eb; font-family: 'Syne', -apple-system, sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  body::before { content: ''; position: fixed; top: -180px; left: 50%; transform: translateX(-50%); width: 900px; height: 480px;
+    background: radial-gradient(ellipse, rgba(201,150,12,.12), transparent 65%); pointer-events: none; }
+  .bar { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #e8b020 30%, #ffd060 50%, #e8b020 70%, transparent); }
+  .wrap { position: relative; max-width: 520px; margin: 0 auto; padding: 72px 20px 48px; text-align: center; }
+  h1 { font-size: 30px; font-weight: 800; line-height: 1.2; }
+  h1 .g { background: linear-gradient(135deg, #ffd060, #c9960c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  p.sub { margin-top: 12px; font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(248,244,235,.62); line-height: 1.6; }
+  .opts { margin-top: 30px; display: flex; flex-direction: column; gap: 10px; }
+  .opt { padding: 15px 16px; border-radius: 10px; border: 1px solid rgba(201,150,12,.25); background: #14151a; color: #f8f4eb;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; cursor: pointer; text-align: left; transition: border-color .15s; }
+  .opt:hover, .opt.on { border-color: #ffd060; }
+  .opt small { display: block; margin-top: 3px; font-family: 'DM Mono', monospace; font-weight: 400; font-size: 11.5px; color: rgba(248,244,235,.45); }
+  textarea { width: 100%; margin-top: 12px; min-height: 84px; padding: 11px 12px; border-radius: 10px; border: 1px solid rgba(201,150,12,.25);
+    background: #0f1014; color: #f8f4eb; font-family: 'DM Mono', monospace; font-size: 12.5px; resize: vertical; outline: none; }
+  textarea:focus { border-color: #c9960c; }
+  .send { margin-top: 12px; width: 100%; padding: 14px; border-radius: 10px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #ffd060, #c9960c); color: #0a0b0e; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+  .send:disabled { opacity: .4; cursor: default; }
+  .done { display: none; margin-top: 30px; padding: 18px; border-radius: 10px; background: rgba(13,204,106,.1); border: 1px solid rgba(13,204,106,.35); color: #0dcc6a; font-family: 'DM Mono', monospace; font-size: 13px; line-height: 1.6; }
+  .foot { margin-top: 36px; font-family: 'DM Mono', monospace; font-size: 10.5px; color: rgba(248,244,235,.32); line-height: 1.6; }
+  .foot a { color: #e8b020; text-decoration: none; }
+
+  .tok { margin-top: 14px; font-family: 'DM Mono', monospace; font-size: 12px; color: #ffd060; word-break: break-all; }
+</style></head>
+<body><div class="bar"></div><div class="wrap">
+  <h1 data-t="h">Score looks off?<br><span class="g">Tell me what's wrong.</span></h1>
+  <div class="tok" id="tok"></div>
+  <div class="opts" id="opts">
+    <button class="opt" data-r="too_high"><span data-t="r1">Too high</span><small data-t="r1s">this coin is riskier than the score says</small></button>
+    <button class="opt" data-r="too_low"><span data-t="r2">Too low</span><small data-t="r2s">this coin is safer than the score says</small></button>
+    <button class="opt" data-r="wrong_data"><span data-t="r3">Wrong data</span><small data-t="r3s">a number or flag in the panel is not true</small></button>
+    <button class="opt" data-r="bug"><span data-t="r4">Something is broken</span><small data-t="r4s">panel, buttons or loading</small></button>
+  </div>
+  <textarea id="txt" maxlength="500" data-ph="ph" placeholder="What did you notice? (optional)"></textarea>
+  <button class="send" id="send" disabled data-t="send">Send</button>
+  <div class="done" id="done" data-t="done">Thanks — I'll check this token.</div>
+  <p class="foot" data-t="foot">Sent anonymously: your answer, the token address, the score and the extension version. Nothing else.</p>
+</div>
+<script>
+const TOPIC = 'degenlens-fb-c20ac59e86';
+const q = new URLSearchParams(location.search);
+const de = (q.get('l') || navigator.language || 'en').toLowerCase().startsWith('de');
+function apply(T) {
+  document.documentElement.lang = de ? 'de' : 'en';
+  for (const el of document.querySelectorAll('[data-t]')) { const v = T[el.dataset.t]; if (v) el.innerHTML = v[de ? 1 : 0]; }
+  for (const el of document.querySelectorAll('[data-ph]')) { const v = T[el.dataset.ph]; if (v) el.placeholder = v[de ? 1 : 0]; }
+}
+// Sends only the chosen answer, the optional text and the extension version.
+// No IDs, no cookies, no tracking. Delivered as a push message to the developer (ntfy.sh).
+async function send(title, lines) {
+  try {
+    await fetch('https://ntfy.sh/' + TOPIC, { method: 'POST', body: lines.filter(Boolean).join('\n'), headers: { Title: title, Tags: 'mag' } });
+    return true;
+  } catch (_) { return false; }
+}
+
+apply({
+  h: ['Score looks off?<br><span class="g">Tell me what\'s wrong.</span>', 'Score wirkt falsch?<br><span class="g">Sag mir, was nicht stimmt.</span>'],
+  r1: ['Too high', 'Zu hoch'], r1s: ['this coin is riskier than the score says', 'der Coin ist riskanter als der Score sagt'],
+  r2: ['Too low', 'Zu niedrig'], r2s: ['this coin is safer than the score says', 'der Coin ist sicherer als der Score sagt'],
+  r3: ['Wrong data', 'Falsche Daten'], r3s: ['a number or flag in the panel is not true', 'eine Zahl oder ein Flag im Panel stimmt nicht'],
+  r4: ['Something is broken', 'Etwas ist kaputt'], r4s: ['panel, buttons or loading', 'Panel, Knöpfe oder Laden'],
+  ph: ['What did you notice? (optional)', 'Was ist dir aufgefallen? (optional)'], send: ['Send', 'Senden'],
+  done: ['Thanks — I\'ll check this token.', 'Danke, ich schaue mir den Token an.'],
+  foot: ['Sent anonymously: your answer, the token address, the score and the extension version. Nothing else.', 'Anonym gesendet: deine Antwort, die Token-Adresse, der Score und die Extension-Version. Sonst nichts.'],
+});
+const mint = (q.get('mint') || '').replace(/[^1-9A-HJ-NP-Za-km-z]/g, '').slice(0, 44);
+const score = (q.get('score') || '').replace(/[^0-9]/g, '').slice(0, 3);
+document.getElementById('tok').textContent = mint ? mint + (score ? '  ·  ' + score + '/100' : '') : '';
+let reason = null;
+document.getElementById('opts').addEventListener('click', (e) => {
+  const b = e.target.closest('.opt'); if (!b) return;
+  reason = b.dataset.r;
+  document.querySelectorAll('.opt').forEach(o => o.classList.toggle('on', o === b));
+  document.getElementById('send').disabled = false;
+});
+document.getElementById('send').addEventListener('click', async () => {
+  const btn = document.getElementById('send'); btn.disabled = true;
+  await send('DegenLens score: ' + reason + (score ? ' (' + score + ')' : ''),
+    ['reason: ' + reason, mint ? 'https://dexscreener.com/solana/' + mint : '', 'score ' + score + ' · v' + (q.get('v') || '?'), document.getElementById('txt').value.trim().slice(0, 500)]);
+  document.getElementById('done').style.display = 'block';
+  btn.style.display = 'none';
+});
+</script></body></html>
